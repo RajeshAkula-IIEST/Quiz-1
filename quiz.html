@@ -1,235 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Quiz Portal</title>
+<meta charset="UTF-8">
+<title>Quiz Portal</title>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f6fc;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-
-    .card {
-      background: white;
-      width: 420px;
-      padding: 25px;
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-
-    h2 {
-      text-align: center;
-      color: #1a237e;
-    }
-
-    #timer {
-      text-align: center;
-      font-weight: bold;
-      color: red;
-      margin-bottom: 15px;
-    }
-
-    label {
-      font-weight: bold;
-    }
-
-    input[type="text"], input[type="number"] {
-      width: 100%;
-      padding: 8px;
-      margin-top: 5px;
-      margin-bottom: 15px;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-
-    button {
-      padding: 10px;
-      width: 100%;
-      background: #1a73e8;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      font-size: 15px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #1558b0;
-    }
-
-    .note {
-      font-size: 13px;
-      color: red;
-      text-align: center;
-      margin-bottom: 10px;
-    }
-  </style>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f6fc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+.card {
+  background: #fff;
+  width: 420px;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+h2 {
+  text-align: center;
+  color: #1a237e;
+}
+input, button {
+  width: 100%;
+  padding: 8px;
+  margin-top: 8px;
+  margin-bottom: 15px;
+}
+button {
+  background: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+button:hover {
+  background: #1558b0;
+}
+#timer {
+  text-align: center;
+  font-weight: bold;
+  color: red;
+  margin-bottom: 10px;
+}
+.note {
+  font-size: 13px;
+  color: red;
+  text-align: center;
+}
+</style>
 </head>
 
 <body>
 
-<div class="card">
-
-  <h2>Quiz</h2>
-
-  <p class="note">
-    One attempt only. Do not refresh. Attendance will be cross-checked.
-  </p>
-
-  <div id="timer">05:00</div>
+<!-- LOGIN BOX -->
+<div class="card" id="loginBox">
+  <h2>Student Login</h2>
 
   <label>Student ID</label>
-  <input type="text" id="sid" placeholder="Enter Student ID">
+  <input type="text" id="loginSid">
+
+  <label>Date of Birth</label>
+  <input type="date" id="loginDob">
+
+  <button onclick="login()">Login</button>
+  <p id="loginMsg" style="color:red;"></p>
+</div>
+
+<!-- QUIZ BOX -->
+<div class="card" id="quizBox" style="display:none;">
+  <h2>Quiz</h2>
+  <p class="note">One attempt only. Do not refresh.</p>
+  <div id="timer">05:00</div>
 
   <div id="questionBox"></div>
-
   <button onclick="nextQuestion()">Next</button>
-
 </div>
 
 <script>
+const API_URL = "https://script.google.com/macros/s/AKfycbyN2eNJ1OS5PolGn8fziBshqS41DUl8w9eJeVwaa99g5bREUXLJgPb2gCZzdtH-EExe/exec";
+
 /* ================= QUESTIONS ================= */
 const questions = [
-  {
-    type: "mcq",
-    question: "PCM is primarily used for?",
-    options: ["Heat storage", "Electricity generation"]
-  },
-  {
-    type: "mcq",
-    question: "SI unit of heat is?",
-    options: ["Joule", "Watt"]
-  },
-  {
-    type: "num",
-    question: "Value of acceleration due to gravity (m/s²)?"
-  },
-  {
-    type: "num",
-    question: "Boiling point of water (°C)?"
-  },
-  {
-    type: "num",
-    question: "Number of fins in the lab setup?"
-  }
+  { type:"mcq", q:"PCM is primarily used for?", options:["Heat storage","Electricity generation"] },
+  { type:"mcq", q:"SI unit of heat is?", options:["Joule","Watt"] },
+  { type:"num", q:"Value of acceleration due to gravity (m/s²)?" },
+  { type:"num", q:"Boiling point of water (°C)?" },
+  { type:"num", q:"Number of fins in the lab setup?" }
 ];
 
-/* ============ RANDOMIZE ORDER ============ */
+/* Randomize order */
 questions.sort(() => Math.random() - 0.5);
 
-/* ============ STATE VARIABLES ============ */
-let current = 0;
+let sid = "";
+let dob = "";
+let index = 0;
 let answers = [];
 let timeLeft = 300;
 
-/* ============ TIMER ============ */
-const timerInterval = setInterval(() => {
-  timeLeft--;
+/* ================= LOGIN ================= */
+async function login() {
+  sid = document.getElementById("loginSid").value.trim();
+  dob = document.getElementById("loginDob").value;
 
-  const min = String(Math.floor(timeLeft / 60)).padStart(2, "0");
-  const sec = String(timeLeft % 60).padStart(2, "0");
-  document.getElementById("timer").innerText = `${min}:${sec}`;
+  if (!sid || !dob) {
+    document.getElementById("loginMsg").innerText = "All fields required";
+    return;
+  }
 
-  if (timeLeft <= 0) submitQuiz();
-}, 1000);
+  document.getElementById("loginMsg").innerText = "Checking...";
 
-/* ============ LOAD QUESTION ============ */
+  const res = await fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({ sid: sid, dob: dob, answers: [] })
+  });
+
+  const out = await res.json();
+
+  if (out.status === "invalid_login") {
+    document.getElementById("loginMsg").innerText = "Invalid Student ID or DOB";
+    return;
+  }
+  if (out.status === "duplicate") {
+    document.getElementById("loginMsg").innerText = "Quiz already attempted";
+    return;
+  }
+
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("quizBox").style.display = "block";
+  startTimer();
+  loadQuestion();
+}
+
+/* ================= TIMER ================= */
+function startTimer() {
+  setInterval(() => {
+    timeLeft--;
+    const m = String(Math.floor(timeLeft / 60)).padStart(2,"0");
+    const s = String(timeLeft % 60).padStart(2,"0");
+    document.getElementById("timer").innerText = `${m}:${s}`;
+    if (timeLeft <= 0) submitQuiz();
+  }, 1000);
+}
+
+/* ================= QUESTIONS ================= */
 function loadQuestion() {
-  const q = questions[current];
-  let html = `<p><b>Question ${current + 1} of ${questions.length}</b></p>`;
-  html += `<p>${q.question}</p>`;
+  const q = questions[index];
+  let html = `<p><b>Question ${index+1} of 5</b></p><p>${q.q}</p>`;
 
   if (q.type === "mcq") {
-    q.options.forEach(opt => {
-      html += `
-        <label>
-          <input type="radio" name="answer" value="${opt}">
-          ${opt}
-        </label><br>
-      `;
+    q.options.forEach(o => {
+      html += `<label><input type="radio" name="ans" value="${o}"> ${o}</label><br>`;
     });
   } else {
-    html += `<input type="number" id="numAnswer">`;
+    html += `<input type="number" id="numAns">`;
   }
 
   document.getElementById("questionBox").innerHTML = html;
 }
 
-/* ============ NEXT QUESTION ============ */
 function nextQuestion() {
-  const q = questions[current];
-  let response = "";
+  const q = questions[index];
+  let val = "";
 
   if (q.type === "mcq") {
-    const selected = document.querySelector('input[name="answer"]:checked');
-    if (!selected) {
-      alert("Answer is mandatory");
-      return;
-    }
-    response = selected.value;
+    const sel = document.querySelector('input[name="ans"]:checked');
+    if (!sel) return alert("Answer required");
+    val = sel.value;
   } else {
-    const val = document.getElementById("numAnswer").value;
-    if (val === "") {
-      alert("Answer is mandatory");
-      return;
-    }
-    response = val;
+    val = document.getElementById("numAns").value;
+    if (val === "") return alert("Answer required");
   }
 
-  answers.push(response);
-  current++;
+  answers.push(val);
+  index++;
 
-  if (current < questions.length) {
-    loadQuestion();
-  } else {
-    submitQuiz();
-  }
+  if (index < questions.length) loadQuestion();
+  else submitQuiz();
 }
 
-/* ============ SUBMIT QUIZ ============ */
+/* ================= SUBMIT ================= */
 async function submitQuiz() {
-  clearInterval(timerInterval);
+  document.getElementById("quizBox").innerHTML = "Submitting...";
 
-  const sid = document.getElementById("sid").value.trim();
-  if (!sid) {
-    alert("Student ID is required");
-    return;
-  }
-
-  document.querySelector(".card").innerHTML = "Submitting your quiz...";
-
-  const res = await fetch("https://script.google.com/macros/s/AKfycbwPzgot4_I0twSjCsvA0OmQVp6c2cXu1KC0mqJH8NILuOCybudwamFA6jMHwf9RK3D2/exec", {
+  await fetch(API_URL, {
     method: "POST",
-    body: JSON.stringify({
-      sid: sid,
-      answers: answers
-    })
+    body: JSON.stringify({ sid: sid, dob: dob, answers: answers })
   });
 
-  const result = await res.json();
-
-  if (result.status === "duplicate") {
-    document.querySelector(".card").innerHTML = `
-      <h3>Attempt already submitted</h3>
-      <p>Second attempt is not permitted.</p>
-    `;
-    return;
-  }
-
-  document.querySelector(".card").innerHTML = `
-    <h3>Quiz submitted successfully</h3>
-    <p>Your responses have been recorded.<br>
-    Results will be announced later.</p>
-  `;
+  document.getElementById("quizBox").innerHTML =
+    "<h3>Quiz submitted successfully</h3><p>Results will be announced later.</p>";
 }
-
-/* ============ START QUIZ ============ */
-loadQuestion();
 </script>
 
 </body>
