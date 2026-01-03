@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Quiz Portal</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f6fc;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .card {
+      background: white;
+      width: 420px;
+      padding: 25px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    h2 {
+      text-align: center;
+      color: #1a237e;
+    }
+
+    #timer {
+      text-align: center;
+      font-weight: bold;
+      color: red;
+      margin-bottom: 15px;
+    }
+
+    label {
+      font-weight: bold;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    button {
+      padding: 10px;
+      width: 100%;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1558b0;
+    }
+
+    .note {
+      font-size: 13px;
+      color: red;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="card">
+
+  <h2>Quiz</h2>
+
+  <p class="note">
+    One attempt only. Do not refresh. Attendance will be cross-checked.
+  </p>
+
+  <div id="timer">05:00</div>
+
+  <label>Student ID</label>
+  <input type="text" id="sid" placeholder="Enter Student ID">
+
+  <div id="questionBox"></div>
+
+  <button onclick="nextQuestion()">Next</button>
+
+</div>
+
+<script>
+/* ================= QUESTIONS ================= */
+const questions = [
+  {
+    type: "mcq",
+    question: "PCM is primarily used for?",
+    options: ["Heat storage", "Electricity generation"]
+  },
+  {
+    type: "mcq",
+    question: "SI unit of heat is?",
+    options: ["Joule", "Watt"]
+  },
+  {
+    type: "num",
+    question: "Value of acceleration due to gravity (m/s²)?"
+  },
+  {
+    type: "num",
+    question: "Boiling point of water (°C)?"
+  },
+  {
+    type: "num",
+    question: "Number of fins in the lab setup?"
+  }
+];
+
+/* ============ RANDOMIZE ORDER ============ */
+questions.sort(() => Math.random() - 0.5);
+
+/* ============ STATE VARIABLES ============ */
+let current = 0;
+let answers = [];
+let timeLeft = 300;
+
+/* ============ TIMER ============ */
+const timerInterval = setInterval(() => {
+  timeLeft--;
+
+  const min = String(Math.floor(timeLeft / 60)).padStart(2, "0");
+  const sec = String(timeLeft % 60).padStart(2, "0");
+  document.getElementById("timer").innerText = `${min}:${sec}`;
+
+  if (timeLeft <= 0) submitQuiz();
+}, 1000);
+
+/* ============ LOAD QUESTION ============ */
+function loadQuestion() {
+  const q = questions[current];
+  let html = `<p><b>Question ${current + 1} of ${questions.length}</b></p>`;
+  html += `<p>${q.question}</p>`;
+
+  if (q.type === "mcq") {
+    q.options.forEach(opt => {
+      html += `
+        <label>
+          <input type="radio" name="answer" value="${opt}">
+          ${opt}
+        </label><br>
+      `;
+    });
+  } else {
+    html += `<input type="number" id="numAnswer">`;
+  }
+
+  document.getElementById("questionBox").innerHTML = html;
+}
+
+/* ============ NEXT QUESTION ============ */
+function nextQuestion() {
+  const q = questions[current];
+  let response = "";
+
+  if (q.type === "mcq") {
+    const selected = document.querySelector('input[name="answer"]:checked');
+    if (!selected) {
+      alert("Answer is mandatory");
+      return;
+    }
+    response = selected.value;
+  } else {
+    const val = document.getElementById("numAnswer").value;
+    if (val === "") {
+      alert("Answer is mandatory");
+      return;
+    }
+    response = val;
+  }
+
+  answers.push(response);
+  current++;
+
+  if (current < questions.length) {
+    loadQuestion();
+  } else {
+    submitQuiz();
+  }
+}
+
+/* ============ SUBMIT QUIZ ============ */
+async function submitQuiz() {
+  clearInterval(timerInterval);
+
+  const sid = document.getElementById("sid").value.trim();
+  if (!sid) {
+    alert("Student ID is required");
+    return;
+  }
+
+  document.querySelector(".card").innerHTML = "Submitting your quiz...";
+
+  const res = await fetch("PASTE_APPS_SCRIPT_URL_HERE", {
+    method: "POST",
+    body: JSON.stringify({
+      sid: sid,
+      answers: answers
+    })
+  });
+
+  const result = await res.json();
+
+  if (result.status === "duplicate") {
+    document.querySelector(".card").innerHTML = `
+      <h3>Attempt already submitted</h3>
+      <p>Second attempt is not permitted.</p>
+    `;
+    return;
+  }
+
+  document.querySelector(".card").innerHTML = `
+    <h3>Quiz submitted successfully</h3>
+    <p>Your responses have been recorded.<br>
+    Results will be announced later.</p>
+  `;
+}
+
+/* ============ START QUIZ ============ */
+loadQuestion();
+</script>
+
+</body>
+</html>
